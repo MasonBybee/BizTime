@@ -7,6 +7,13 @@ const slugify = require("slugify");
 router.get("/", async (req, res, next) => {
   try {
     const results = await db.query(`SELECT * FROM companies;`);
+    for (let i = 0; i < results.rows.length; i++) {
+      const industryResults = await db.query(
+        "SELECT i.code, i.industry FROM companies c JOIN company_industries ci ON ci.comp_code = code JOIN industries i ON i.code = ci.industry_code WHERE c.code = $1",
+        [results.rows[i].code]
+      );
+      results.rows[i].industries = industryResults.rows;
+    }
     return res.json({ companies: results.rows });
   } catch (e) {
     return next(e);
@@ -23,10 +30,15 @@ router.get("/:code", async (req, res, next) => {
       "SELECT * FROM invoices WHERE comp_code=$1",
       [code]
     );
+    const industryResults = await db.query(
+      "SELECT i.code, i.industry FROM companies c JOIN company_industries ci ON ci.comp_code = code JOIN industries i ON i.code = ci.industry_code WHERE c.code = $1",
+      [code]
+    );
     if (results.rows.length === 0) {
       throw new ExpressError(`Can't find company with code of ${code}`, 404);
     }
     results.rows[0].invoices = invoiceResults.rows;
+    results.rows[0].industries = industryResults.rows;
     return res.json({ company: results.rows[0] });
   } catch (e) {
     next(e);
